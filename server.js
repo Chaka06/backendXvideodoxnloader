@@ -2,29 +2,27 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const NodeCache = require('node-cache');
-const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialisation du cache
-const mediaCache = new NodeCache({ stdTTL: 3600 }); // Cache d'1 heure
+const mediaCache = new NodeCache({ stdTTL: 3600 });
 
-// Configuration CORS
+// Configuration CORS améliorée
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Range', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Range', 'Content-Length', 'Accept-Ranges', 'Content-Type', 'Content-Disposition'],
     credentials: true
 }));
 
 // Middleware pour parser le JSON
 app.use(express.json());
 
-// Servir les fichiers statiques
-app.use(express.static(path.join(__dirname, '../')));
-
-// Route pour la page d'accueil
+// Route de base pour vérifier que l'API fonctionne
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../index.html'));
+    res.json({ message: "API is running" });
 });
 
 // Configuration axios avec timeout et retry
@@ -101,8 +99,6 @@ app.post('/api/video-info', async (req, res) => {
         const response = await axios.get(apiUrl, config);
         const tweetData = response.data;
 
-        console.log('Response data:', JSON.stringify(tweetData, null, 2));
-
         if (!tweetData.media_extended || !tweetData.media_extended.length) {
             throw new Error('Aucun média trouvé dans ce tweet');
         }
@@ -113,7 +109,6 @@ app.post('/api/video-info', async (req, res) => {
             throw new Error('Aucun média exploitable trouvé dans ce tweet');
         }
 
-        // Stocker dans le cache
         const responseData = { medias };
         mediaCache.set(tweetId, responseData);
 
@@ -134,45 +129,80 @@ app.get('/api/download', async (req, res) => {
             return res.status(400).json({ error: 'URL du média requise' });
         }
 
+        // Configuration de la requête avec support des requêtes partielles
+        const headers = { ...config.headers };
+        if (req.headers.range) {
+            headers.range = req.headers.range;
+        }
+
         const response = await axios({
             method: 'GET',
             url: url,
             responseType: 'stream',
-            ...config,
-            timeout: 30000
+            headers,
+            timeout: 30000,
+            maxRedirects: 5
         });
 
-        // Déterminer le type de contenu
+        // Gestion du type de contenu et des headers
         const contentType = type === 'photo' ? 'image/jpeg' : 'video/mp4';
         const extension = type === 'photo' ? '.jpg' : '.mp4';
-        
         const filename = `x-media-${Date.now()}${extension}`;
-        
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        // Headers de base
         res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
         res.setHeader('Cache-Control', 'public, max-age=31536000');
         res.setHeader('Last-Modified', (new Date()).toUTCString());
 
+        // Gestion des requêtes partielles
+        if (response.headers['content-range']) {
+            res.setHeader('Content-Range', response.headers['content-range']);
+            res.status(206);
+        } else {
+            res.setHeader('Content-Length', response.headers['content-length']);
+        }
+
+        // Streaming de la réponse
         response.data.pipe(res);
+
+        // Gestion des erreurs pendant le streaming
+        response.data.on('error', (error) => {
+            console.error('Erreur pendant le streaming:', error);
+            if (!res.headersSent) {
+                res.status(500).json({
+                    error: 'Erreur pendant le streaming',
+                    details: error.message
+                });
+            }
+        });
     } catch (error) {
         console.error('Erreur de téléchargement:', error);
-        res.status(500).json({
-            error: 'Erreur lors du téléchargement',
-            details: error.message
-        });
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: 'Erreur lors du téléchargement',
+                details: error.message
+            });
+        }
     }
 });
 
 // Middleware de gestion des erreurs
 app.use((err, req, res, next) => {
     console.error('Erreur globale:', err);
-    res.status(500).json({
-        error: 'Erreur serveur interne',
-        details: err.message
-    });
+    if (!res.headersSent) {
+        res.status(500).json({
+            error: 'Erreur serveur interne',
+            details: err.message
+        });
+    }
 });
 
 // Démarrage du serveur
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
 });
+
