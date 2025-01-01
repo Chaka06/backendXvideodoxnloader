@@ -10,19 +10,33 @@ const mediaCache = new NodeCache({ stdTTL: 3600 });
 
 // Configuration CORS améliorée
 app.use(cors({
+<<<<<<< HEAD
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Range', 'Accept', 'Origin'],
     exposedHeaders: ['Content-Range', 'Content-Length', 'Accept-Ranges', 'Content-Type', 'Content-Disposition'],
     credentials: true
+=======
+  origin: '*', // Vous pourrez le changer plus tard pour l'URL de votre frontend Netlify
+  methods: ['GET', 'POST'],
+  credentials: true
+>>>>>>> 7b45a10beee48aee84f1728be601065503c5b162
 }));
 
 // Middleware pour parser le JSON
 app.use(express.json());
 
+<<<<<<< HEAD
 // Route de base pour vérifier que l'API fonctionne
 app.get('/', (req, res) => {
     res.json({ message: "API is running" });
+=======
+
+
+// Route de base pour vérifier que l'API fonctionne
+app.get('/', (req, res) => {
+  res.json({ message: "API is running" });
+>>>>>>> 7b45a10beee48aee84f1728be601065503c5b162
 });
 
 // Configuration axios avec timeout et retry
@@ -205,4 +219,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
 });
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7b45a10beee48aee84f1728be601065503c5b162
