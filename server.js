@@ -2,32 +2,27 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const NodeCache = require('node-cache');
-const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialisation du cache
-const mediaCache = new NodeCache({ stdTTL: 3600 }); // Cache d'1 heure
+const mediaCache = new NodeCache({ stdTTL: 3600 });
 
 // Configuration CORS
-// Pour gérer les CORS avec votre frontend Netlify
 app.use(cors({
-    origin: 'VOTRE_URL_NETLIFY',
-    credentials: true
+  origin: '*', // Vous pourrez le changer plus tard pour l'URL de votre frontend Netlify
+  methods: ['GET', 'POST'],
+  credentials: true
 }));
-
-// Pour le port
-const port = process.env.PORT || 3000;
 
 // Middleware pour parser le JSON
 app.use(express.json());
 
-// Servir les fichiers statiques
-app.use(express.static(path.join(__dirname, '../')));
 
-// Route pour la page d'accueil
+
+// Route de base pour vérifier que l'API fonctionne
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../index.html'));
+  res.json({ message: "API is running" });
 });
 
 // Configuration axios avec timeout et retry
