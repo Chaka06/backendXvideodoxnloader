@@ -10,11 +10,14 @@ const PORT = process.env.PORT || 3000;
 const mediaCache = new NodeCache({ stdTTL: 3600 }); // Cache d'1 heure
 
 // Configuration CORS
+// Pour gérer les CORS avec votre frontend Netlify
 app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST'],
+    origin: 'VOTRE_URL_NETLIFY',
     credentials: true
 }));
+
+// Pour le port
+const port = process.env.PORT || 3000;
 
 // Middleware pour parser le JSON
 app.use(express.json());
